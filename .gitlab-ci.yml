@@ -1,0 +1,124 @@
+variables:
+  NAMESPACE: fe-prod
+  VERSION: ${CI_COMMIT_SHA}
+
+stages:
+  - setup
+  - compile-send
+  - imagebuild-send
+  - deploy-send
+  - compile-screen
+  - imagebuild-screen
+  - deploy-screen
+
+prepare:
+  image: reg.redrock.team/base/redrock-fe-compiler:latest
+  stage: setup
+  tags:
+    - redrock-fe
+  cache:
+    key: $CI_COMMIT_REF_SLUG-$CI_PROJECT_DIR
+    paths:
+      - node_modules/
+  script:
+    - apk add python3 make g++ util-linux
+    - npm i
+    - yarn global add parcel-bundler
+
+compile_send:
+  image: reg.redrock.team/base/redrock-fe-compiler:latest
+  stage: compile-send
+  tags:
+    - redrock-fe
+  cache:
+    key: $CI_COMMIT_REF_SLUG-$CI_PROJECT_DIR
+    paths:
+      - node_modules/
+    policy: pull
+  script:
+    - yarn build:send
+  only:
+    - master
+  artifacts:
+    expire_in: 3 days
+    paths:
+      - dist
+
+image_send:
+  image: reg.redrock.team/base/redrock-imagebuilder:latest
+  stage: imagebuild-send
+  tags:
+    - redrock-fe
+  variables:
+    REPO_NAME: barrage-send
+  script:
+    - echo -e "FROM reg.redrock.team/base/redrock-fe-env-caddy:latest\nADD ./dist /build" > Dockerfile
+    - docker build . -t reg.redrock.team/fe-prod-artifacts/${REPO_NAME}:${CI_COMMIT_SHA}
+    - docker push "reg.redrock.team/fe-prod-artifacts/${REPO_NAME}:${CI_COMMIT_SHA}"
+    - rm -rf dist
+  only:
+    - master
+
+deploy_send:
+  image: reg.redrock.team/base/redrock-kubectl:latest
+  stage: deploy-send
+  tags:
+    - redrock-fe
+  variables:
+    REPO_NAME: barrage-send
+  script:
+    - sed -i "s/_NAMESPACE_/${NAMESPACE}/" /deploy.yaml
+    - sed -i "s/_VERSION_/${VERSION}/" /deploy.yaml
+    - sed -i "s/_REPO_NAME_/${REPO_NAME}/" /deploy.yaml
+    - kubectl apply -f /deploy.yaml
+  only:
+    - master
+
+compile_screen:
+  image: reg.redrock.team/base/redrock-fe-compiler:latest
+  stage: compile-screen
+  tags:
+    - redrock-fe
+  cache:
+    key: $CI_COMMIT_REF_SLUG-$CI_PROJECT_DIR
+    paths:
+      - node_modules/
+    policy: pull
+  script:
+    - yarn build:screen
+  only:
+    - master
+  artifacts:
+    expire_in: 3 days
+    paths:
+      - dist
+
+image_screen:
+  image: reg.redrock.team/base/redrock-imagebuilder:latest
+  stage: imagebuild-screen
+  tags:
+    - redrock-fe
+  variables:
+    REPO_NAME: barrage-screen
+  script:
+    - echo -e "FROM reg.redrock.team/base/redrock-fe-env-caddy:latest\nADD ./dist /build" > Dockerfile
+    - docker build . -t reg.redrock.team/fe-prod-artifacts/${REPO_NAME}:${CI_COMMIT_SHA}
+    - docker push "reg.redrock.team/fe-prod-artifacts/${REPO_NAME}:${CI_COMMIT_SHA}"
+    - rm -rf dist
+  only:
+    - master
+
+deploy_screen:
+  image: reg.redrock.team/base/redrock-kubectl:latest
+  stage: deploy-screen
+  tags:
+    - redrock-fe
+  variables:
+    REPO_NAME: barrage-screen
+  script:
+    - sed -i "s/_NAMESPACE_/${NAMESPACE}/" /deploy.yaml
+    - sed -i "s/_VERSION_/${VERSION}/" /deploy.yaml
+    - sed -i "s/_REPO_NAME_/${REPO_NAME}/" /deploy.yaml
+    - kubectl apply -f /deploy.yaml
+  only:
+    - master
