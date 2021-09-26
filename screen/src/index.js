@@ -1,4 +1,5 @@
 import './css.css'
+import "regenerator-runtime/runtime"
 
 class Barrage {
   constructor(canvas) {
@@ -73,6 +74,8 @@ barrage.draw()
 
 const lucky = document.querySelector('.lucky')
 const luckyWrapper = document.querySelector('.lucky-wrapper')
+const roomList = document.querySelector("#roomlist")
+const connect = document.querySelector(".connect")
 
 window.addEventListener('click', e => {
   if (e.target.className === 'screen') {
@@ -167,28 +170,45 @@ const showLucky = (luckyUsers, badUsernames = shuffle(fakeBadUsernames)) => {
   }, TIMEOUTTIME)
 }
 
-const ws = new WebSocket('wss://be-prod.redrock.cqupt.edu.cn/another_barrage/screen/barrage')
-
-ws.onopen = e => {
-  console.log("Connection open ...")
-  ws.send("Hello WebSockets!")
-
-  setInterval(() => {
-    ws.send('keepOnline')
-    console.log('keepOnline')
-  }, 29000)
-}
-
-ws.onmessage = e => {
-  const t = JSON.parse(e.data)
-
-  if (!t.status) {
-    console.log(t)
-    barrage.shoot(t)
-    return
+async function getRooms(){
+  let res = await fetch(`https://be-prod.redrock.cqupt.edu.cn/another-barrage/getRooms`);
+  let {data} = await res.json();
+  for (const room of data) {
+      let newRoom = document.createElement("option");
+      newRoom.innerText = room;
+      newRoom.value = room;
+      roomList.appendChild(newRoom)
   }
-
-  showLucky(t.data)
 }
+getRooms();
+let ws;
+async function initConnect(){
+  if(ws)ws.close()
+  ws = new WebSocket(`wss://be-prod.redrock.cqupt.edu.cn/another-barrage/screen/barrage/${roomList.value}`)
 
-ws.onclose = e => console.log("Connection closed.")
+  ws.onopen = e => {
+    console.log("Connection open ...")
+    ws.send("Hello WebSockets!")
+  
+    setInterval(() => {
+      ws.send('keepOnline')
+      console.log('keepOnline')
+    }, 29000)
+  }
+  
+  ws.onmessage = e => {
+    const t = JSON.parse(e.data)
+  
+    if (!t.status) {
+      console.log(t)
+      barrage.shoot(t)
+      return
+    }
+  
+    showLucky(t.data)
+  }
+  
+  ws.onclose = e => console.log("Connection closed.")
+}
+connect.addEventListener('click',initConnect)
+

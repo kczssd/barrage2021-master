@@ -30,10 +30,15 @@
   font-size: 4vw;
   background: #66CCFF;
 }
-
+.select{
+  display: flex;
+}
+.room-wrapper{
+  margin: 4vw auto 0;
+}
 .color-wrapper {
   display: flex;
-  width: 80vw;
+  /* width: 80vw; */
   align-items: center;
   margin: 4vw auto 0;
 }

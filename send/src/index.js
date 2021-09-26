@@ -7,8 +7,8 @@ const API = 'https://be-prod.redrock.cqupt.edu.cn/another-barrage'
 function checkToken() {
   const token = location.href.split('?token=')[1]
   if (token) {
-    fetch(`${API}/user/enter?token=${token}`)
     sessionStorage.setItem('barrage-token', token)
+    getRooms() 
   } else {
     var rushbUrl = encodeURI('https://fe-prod.redrock.cqupt.edu.cn/barrage-send/')
     location.href = 'https://be-prod.redrock.cqupt.edu.cn/magicloop-wx/auth/enter/yorozuya?origin=' + rushbUrl + '&scope=student'
@@ -23,6 +23,34 @@ const colorSelector = document.querySelector('#color')
 const close = document.querySelector('.close')
 const diolog = document.querySelector('.diolog')
 const tip = document.querySelector('.tip')
+const roomList = document.querySelector("#roomlist")
+
+async function getRooms(){
+  let res = await fetch(`${API}/getRooms`);
+  let {data} = await res.json();
+  try{
+    for (const room of data) {
+      let newRoom = document.createElement("option");
+      newRoom.innerText = room;
+      newRoom.value = room;
+      roomList.appendChild(newRoom)
+    }
+    enter(roomList.value)
+  }catch(e){
+    console.log('没有房间',e)
+  }
+}
+
+async function enter(value){
+  if(value){
+    fetch(`${API}/user/enter/${value}`,{
+      headers:new Headers({
+        'Authorization': `Bearer ${sessionStorage.getItem('barrage-token')}`
+      }),
+    })
+  }
+}
+roomList.addEventListener('input',enter(roomList.value))
 
 const showTip = err => {
   diolog.style.display = 'block'
@@ -40,7 +68,7 @@ send.addEventListener('click', async e => {
   }
 
   try {
-    const res = await fetch(`${API}/user/barrage`, {
+    const res = await fetch(`${API}/user/barrage/${roomList.value}`, {
       method: 'POST',
       headers: new Headers({
         'Content-Type': 'application/json',
